@@ -17,8 +17,8 @@ documentation:
   discord:      "adamgreig#1307"
   title:        "Sigma-Delta ADC/DAC"
   description:  "Simple ADC and DAC"
-  how_it_works: ""
-  how_to_test:  ""
+  how_it_works: "A sigma-delta DAC outputs a single-bit pulse-density-modulated value, which is integrated by an RC low-pass filter off-chip. This voltage is compared to the input voltage by an off-chip comparator, and the comparison result fed back into the ASIC to update the DAC value. The DAC value therefore tracks the input signal, and is continuously emitted over a UART at the clock rate."
+  how_to_test:  "Connect out[0] through a series resistor and a capacitor to ground, and to the non-inverting input of a comparator. Connect the analogue input to the inverting input and the comparator output to in[2]. Connect out[1] to a UART receiver at the clock rate."
   external_hw:  "Comparator, resistor, capacitor"
   language:     "Amaranth"
   doc_link:     "https://github.com/adamgreig/tt02-adc-dac"
@@ -27,15 +27,15 @@ documentation:
   inputs:
     - clock
     - reset
-    - none
+    - adc_in
     - none
     - none
     - none
     - none
     - none
   outputs:
-    - none
-    - none
+    - dac_out
+    - uart_tx
     - none
     - none
     - none
