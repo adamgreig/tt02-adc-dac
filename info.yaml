@@ -17,8 +17,8 @@ documentation:
   discord:      "adamgreig#1307"
   title:        "Sigma-Delta ADC/DAC"
   description:  "Simple ADC and DAC"
-  how_it_works: "A sigma-delta DAC outputs a single-bit pulse-density-modulated value, which is integrated by an RC low-pass filter off-chip. This voltage is compared to the input voltage by an off-chip comparator, and the comparison result fed back into the ASIC to update the DAC value. The DAC value therefore tracks the input signal, and is continuously emitted over a UART at the clock rate."
-  how_to_test:  "Connect out[0] through a series resistor and a capacitor to ground, and to the non-inverting input of a comparator. Connect the analogue input to the inverting input and the comparator output to in[2]. Connect out[1] to a UART receiver at the clock rate."
+  how_it_works: "A sigma-delta DAC outputs a single-bit pulse-density-modulated value, which is integrated by an RC low-pass filter off-chip. This voltage is compared to the input voltage by an off-chip comparator, and the comparison result fed back into the ASIC to update the DAC value. The DAC value therefore tracks the input signal, and is continuously emitted over a UART at the clock rate. If ctrl is 0 the DAC is used for the ADC, otherwise the DAC is driven to the 5-bit control word."
+  how_to_test:  "Connect out[0] through a series resistor and a capacitor to ground, and to the non-inverting input of a comparator. Connect the analogue input to the inverting input and the comparator output to in[2]. Connect out[1] to a UART receiver at the clock rate. Set ctrl to 0 to work as ADC, otherwise set ctrl to any other value to directly drive the DAC."
   external_hw:  "Comparator, resistor, capacitor"
   language:     "Amaranth"
   doc_link:     "https://github.com/adamgreig/tt02-adc-dac"
@@ -28,11 +28,11 @@ documentation:
     - clock
     - reset
     - adc_in
-    - none
-    - none
-    - none
-    - none
-    - none
+    - ctrl[0]
+    - ctrl[1]
+    - ctrl[2]
+    - ctrl[3]
+    - ctrl[4]
   outputs:
     - dac_out
     - uart_tx

@@ -108,6 +108,10 @@ class Top(am.Elaboratable):
         dac_out = self.io_out[0]
         uart_txo = self.io_out[1]
 
+        # Use the other five inputs as a parallel DAC input for now.
+        # When they're all 0, the DAC is used for the ADC.
+        dac_ctrl = self.io_in[3:]
+
         # Accumulate to track the input signal.
         acc = am.Signal(8)
         with m.If(adc_in):
@@ -119,7 +123,7 @@ class Top(am.Elaboratable):
         dac = m.submodules.dac = SDDAC()
         uart_tx = m.submodules.uart_tx = UartTx()
         m.d.comb += [
-            dac.data.eq(acc),
+            dac.data.eq(am.Mux(dac_ctrl == 0, acc, dac_ctrl << 3)),
             dac_out.eq(dac.out),
             uart_tx.data.eq(acc),
             uart_txo.eq(uart_tx.tx_o),
