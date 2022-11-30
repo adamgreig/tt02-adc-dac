@@ -3,9 +3,12 @@
 module adamgreig_tt02_adc_dac(io_in, io_out);
   reg \$auto$verilog_backend.cc:2083:dump_module$1  = 0;
   wire [8:0] \$1 ;
+  wire \$10 ;
   wire [8:0] \$2 ;
   wire [8:0] \$4 ;
   wire [8:0] \$5 ;
+  wire [7:0] \$7 ;
+  wire [7:0] \$9 ;
   reg [7:0] acc = 8'h00;
   reg [7:0] \acc$next ;
   wire clk;
@@ -22,12 +25,14 @@ module adamgreig_tt02_adc_dac(io_in, io_out);
   wire uart_tx_ready;
   wire uart_tx_tx_o;
   wire uart_tx_valid;
-  assign \$2  = acc - 1'h1;
-  assign \$5  = acc + 1'h1;
+  assign \$10  = ! io_in[7:3];
+  assign \$9  = \$10  ? acc : \$7 ;
   always @(posedge clk)
     acc <= \acc$next ;
   always @(posedge clk)
     ready_sr <= \ready_sr$next ;
+  assign \$2  = acc - 1'h1;
+  assign \$5  = acc + 1'h1;
   dac dac (
     .clk(clk),
     .data(dac_data),
@@ -71,9 +76,10 @@ module adamgreig_tt02_adc_dac(io_in, io_out);
   assign io_out[1] = uart_tx_tx_o;
   assign io_out[0] = dac_out;
   assign io_out[7:2] = 6'h00;
-  assign dac_data = acc;
+  assign dac_data = \$9 ;
   assign rst = io_in[1];
   assign clk = io_in[0];
+  assign \$7  = { io_in[7:3], 3'h0 };
 endmodule
 
 module dac(rst, data, out, clk);
