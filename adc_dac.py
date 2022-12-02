@@ -184,6 +184,54 @@ class HexUartTx(am.Elaboratable):
         return m
 
 
+class UartRx(am.Elaboratable):
+    """
+    Simple UART receiver.
+
+    Receives 8n1 words at a fixed division of the clock rate.
+
+    Parameters:
+        * `divider` Clock cycles per baud
+
+    Inputs:
+        * `rx_i`: Input UART signal
+
+    Outputs:
+        * `data`: 8-bit received data
+        * `valid`: Pulsed high when a new word is received
+    """
+    def __init__(self, divider=10):
+        self.divider = divider
+        self.rx_i = am.Signal(reset=1)
+        self.data = am.Signal(8)
+        self.valid = am.Signal()
+
+    def elaborate(self, platform):
+        m = am.Module()
+
+        bit_idx = am.Signal(4)
+        sr = am.Signal(8)
+        ctr = am.Signal(range(self.divider + self.divider//2 + 1))
+
+        with m.FSM():
+            with m.State("IDLE"):
+                m.d.sync += bit_idx.eq(0), self.valid.eq(0)
+                with m.If(~self.rx_i):
+                    m.d.sync += ctr.eq(self.divider + self.divider//2 - 1)
+                    m.next = "BIT"
+            with m.State("BIT"):
+                m.d.sync += ctr.eq(ctr - 1)
+                with m.If(ctr == 0):
+                    m.d.sync += sr.eq(am.Cat(sr[1:], self.rx_i))
+                    m.d.sync += bit_idx.eq(bit_idx + 1)
+                    m.d.sync += ctr.eq(self.divider - 1)
+                    with m.If(bit_idx == 8):
+                        m.next = "IDLE"
+                        m.d.sync += self.valid.eq(1), self.data.eq(sr)
+
+        return m
+
+
 class Top(am.Elaboratable):
     def __init__(self):
         self.io_in = am.Signal(8)
@@ -196,8 +244,10 @@ class Top(am.Elaboratable):
         clk_in = self.io_in[0]
         rst_in = self.io_in[1]
         adc_in = self.io_in[2]
+        uart_in = self.io_in[3]
         adc_out = self.io_out[0]
         uart_out = self.io_out[1]
+        dac_out = self.io_out[2]
 
         # Set up clock domain from io_in[0] and reset from io_in[1].
         cd_sync = am.ClockDomain("sync")
@@ -217,6 +267,12 @@ class Top(am.Elaboratable):
         ready_sr = am.Signal(10)
         m.d.sync += ready_sr.eq(am.Cat(adc_uart.ready, ready_sr))
         m.d.comb += adc_uart.valid.eq(ready_sr[-1])
+
+        # Create a standalone DAC driven by a UART.
+        dac = m.submodules.dac = SDDAC(n=8)
+        dac_uart = m.submodules.dac_uart = UartRx(divider=10)
+        m.d.comb += dac_out.eq(dac.out), dac.data.eq(dac_uart.data)
+        m.d.comb += dac_uart.rx_i.eq(uart_in)
 
         return m
 
@@ -265,7 +321,7 @@ def test_sdadc():
         sim.run()
 
 
-def test_uart():
+def test_uart_tx():
     """Test UART transmits a word correctly."""
     uart = UartTx()
 
@@ -291,11 +347,11 @@ def test_uart():
     sim = Simulator(uart)
     sim.add_clock(1/10e6)
     sim.add_sync_process(testbench)
-    with sim.write_vcd("vcd/uart.vcd"):
+    with sim.write_vcd("vcd/uart_tx.vcd"):
         sim.run()
 
 
-def test_hex_uart():
+def test_hex_uart_tx():
     """Test hex UART transmits a word correctly."""
     uart = HexUartTx(n=16)
 
@@ -332,6 +388,37 @@ def test_hex_uart():
         sim.run()
 
 
+def test_uart_rx():
+    """Test UART receives a byte correctly."""
+    divider = 10
+    uart = UartRx(divider)
+    uart_words = []
+
+    def testbench_tx():
+        bits = [1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1]
+        yield uart.rx_i.eq(1)
+        yield
+        for bit in bits:
+            yield uart.rx_i.eq(bit)
+            for _ in range(divider):
+                yield
+        assert uart_words == [0xA1]
+
+    def testbench_rx():
+        yield am.sim.Passive()
+        while True:
+            if (yield uart.valid):
+                uart_words.append((yield uart.data))
+            yield
+
+    sim = Simulator(uart)
+    sim.add_clock(1/10e6)
+    sim.add_sync_process(testbench_tx)
+    sim.add_sync_process(testbench_rx)
+    with sim.write_vcd("vcd/uart_rx.vcd"):
+        sim.run()
+
+
 def test_top():
     """
     Test overall Top design.
@@ -341,6 +428,7 @@ def test_top():
     """
     top = Top()
     uart_words = []
+    dac_avgs = []
 
     def testbench_adc():
         # Simulates the external integrator and comparator.
@@ -358,6 +446,15 @@ def test_top():
             yield
         expected = 2**12 * target
         assert uart_words[-1] in range(int(expected*0.93), int(expected*1.08))
+
+    def testbench_dac():
+        # Simulate second external integrator and store average DAC words.
+        rdgs = [(yield top.io_out[2])]
+        for _ in range(2000):
+            rdgs.append((yield top.io_out[2]))
+            dac_avgs.append(np.mean(rdgs[-40:]))
+            print(dac_avgs[-1])
+            yield
 
     def testbench_hex_uart():
         # Capture words received by the UART.
@@ -377,10 +474,24 @@ def test_top():
                 uart_words.append(int("".join(line), 16))
                 line.clear()
 
+    def testbench_uart_rx():
+        # Send a control word 0x21 to the UART to set the DAC.
+        bits = [0, 1, 0, 0, 0, 0, 1, 0, 0, 1]
+        for bit in bits:
+            yield top.io_in[3].eq(bit)
+            for _ in range(10):
+                yield
+        for _ in range(1000):
+            yield
+        target = 0x21 / 0xff
+        assert target * 0.95 <= dac_avgs[-1] <= target * 1.05
+
     sim = Simulator(top)
     sim.add_clock(1/10e6)
     sim.add_sync_process(testbench_adc)
+    sim.add_sync_process(testbench_dac)
     sim.add_sync_process(testbench_hex_uart)
+    sim.add_sync_process(testbench_uart_rx)
     with sim.write_vcd("vcd/top.vcd"):
         sim.run()
 

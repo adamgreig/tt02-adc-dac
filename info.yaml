@@ -30,12 +30,20 @@ documentation:
     generating the output voltage is then the ADC reading. This control word
     is regularly transmitted as hex-encoded ASCII over a UART running at the
     clock rate.
+
+    A second dedicated 8-bit DAC is controlled by received words over a UART.
+    Transmit the control word at 1/10th the clock speed into `uart_in`, and
+    add a second external RC circuit to filter `dac_out` to an analogue voltage.
   how_to_test: |
     Ensure in[0] is clocked. Connect out[0] through a series resistor to both
     a capacitor to ground and the non-inverting input of a comparator. Connect
     the analogue input to measure to the inverting input, and connect the
     comparator output to in[2]. Connect out[1] to a UART receiver at the clock
     rate and receive ADC readings as hex-encoded ASCII lines.
+
+    Connect out[2] to a second RC filter, and feed one-byte DAC settings
+    to the UART on in[3] at a baud rate 1/10th the clock. Measure the
+    resulting analogue output.
   external_hw:  "Comparator, resistor, capacitor"
   language:     "Amaranth"
   doc_link:     "https://github.com/adamgreig/tt02-adc-dac"
@@ -45,7 +53,7 @@ documentation:
     - clock
     - reset
     - adc_in
-    - none
+    - uart_in
     - none
     - none
     - none
@@ -53,7 +61,7 @@ documentation:
   outputs:
     - adc_out
     - uart_out
-    - none
+    - dac_out
     - none
     - none
     - none
