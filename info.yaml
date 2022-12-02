@@ -47,7 +47,7 @@ documentation:
   external_hw:  "Comparator, resistor, capacitor"
   language:     "Amaranth"
   doc_link:     "https://github.com/adamgreig/tt02-adc-dac"
-  clock_hz:     6
+  clock_hz:     6000
   picture:      ""
   inputs:
     - clock
