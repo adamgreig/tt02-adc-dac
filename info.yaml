@@ -17,8 +17,25 @@ documentation:
   discord:      "adamgreig#1307"
   title:        "Sigma-Delta ADC/DAC"
   description:  "Simple ADC and DAC"
-  how_it_works: "A sigma-delta DAC outputs a single-bit pulse-density-modulated value, which is integrated by an RC low-pass filter off-chip. This voltage is compared to the input voltage by an off-chip comparator, and the comparison result fed back into the ASIC to update the DAC value. The DAC value therefore tracks the input signal, and is continuously emitted over a UART at the clock rate. If ctrl is 0 the DAC is used for the ADC, otherwise the DAC is driven to the 5-bit control word."
-  how_to_test:  "Connect out[0] through a series resistor and a capacitor to ground, and to the non-inverting input of a comparator. Connect the analogue input to the inverting input and the comparator output to in[2]. Connect out[1] to a UART receiver at the clock rate. Set ctrl to 0 to work as ADC, otherwise set ctrl to any other value to directly drive the DAC."
+  how_it_works: |
+    This project is built on a simple sigma-delta DAC. The DAC is given an n-bit
+    control word and generates a single-bit digital output where the pulse
+    density is proportional to that control word. By integrating this pulse
+    train, for example with an RC filter, an analogue output voltage is produced.
+
+    The ADC operates by generating an analogue output voltage which is compared
+    to the analogue input by an off-chip comparator. The comparator result is
+    used as a digital input to a simple control loop that adjusts the output
+    voltage so that it tracks the input signal. The control word for the DAC
+    generating the output voltage is then the ADC reading. This control word
+    is regularly transmitted as hex-encoded ASCII over a UART running at the
+    clock rate.
+  how_to_test: |
+    Ensure in[0] is clocked. Connect out[0] through a series resistor to both
+    a capacitor to ground and the non-inverting input of a comparator. Connect
+    the analogue input to measure to the inverting input, and connect the
+    comparator output to in[2]. Connect out[1] to a UART receiver at the clock
+    rate and receive ADC readings as hex-encoded ASCII lines.
   external_hw:  "Comparator, resistor, capacitor"
   language:     "Amaranth"
   doc_link:     "https://github.com/adamgreig/tt02-adc-dac"
@@ -28,14 +45,14 @@ documentation:
     - clock
     - reset
     - adc_in
-    - ctrl[0]
-    - ctrl[1]
-    - ctrl[2]
-    - ctrl[3]
-    - ctrl[4]
+    - none
+    - none
+    - none
+    - none
+    - none
   outputs:
-    - dac_out
-    - uart_tx
+    - adc_out
+    - uart_out
     - none
     - none
     - none
