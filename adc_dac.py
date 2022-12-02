@@ -202,7 +202,7 @@ class UartRx(am.Elaboratable):
     """
     def __init__(self, divider=10):
         self.divider = divider
-        self.rx_i = am.Signal(reset=1)
+        self.rx_i = am.Signal()
         self.data = am.Signal(8)
         self.valid = am.Signal()
 
@@ -395,14 +395,14 @@ def test_uart_rx():
     uart_words = []
 
     def testbench_tx():
-        bits = [1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1]
+        bits = [0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1]
         yield uart.rx_i.eq(1)
         yield
         for bit in bits:
             yield uart.rx_i.eq(bit)
             for _ in range(divider):
                 yield
-        assert uart_words == [0xA1]
+        assert uart_words == [0xA1, 0x5A]
 
     def testbench_rx():
         yield am.sim.Passive()
